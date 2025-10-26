@@ -1,0 +1,4 @@
+input_images/dog.jpg
+output_images/dog.png
+89 124
+64
