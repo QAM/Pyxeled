@@ -1,0 +1,5 @@
+[flake8]
+count = True
+exclude = .git, .chalice, .circleci, misc
+max-line-length = 120
+ignore = T001, W503
