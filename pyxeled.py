@@ -5,24 +5,25 @@ from sklearn.decomposition import PCA
 import math
 from loguru import logger
 
-
-# Configure loguru to write to a log file
-logger.remove()  # Remove default handler
-logger.add(
-    "pyxeled.log",
-    rotation="10 MB",
-    retention="7 days",
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name}:{function}:{line} - {message}",
-)
-logger.add(lambda msg: print(msg, end=""), level="INFO")  # Also print to console
-
 # Configuration
+
+# Configure logging to file
+log_filename = "pyxeled.log"
+logger.remove()  # Remove default handler
+logger.add(log_filename, rotation="10 MB", retention="7 days", level="INFO")
+logger.add(lambda msg: print(msg, end=""), level="INFO")  # Also print to console
 
 in_image_name = input()
 out_image_name = input()
 w_out, h_out = map(int, input().split())
 K_max = int(input())
+
+# Log input parameters
+logger.info("Starting Pyxeled processing")
+logger.info(f"Input image: {in_image_name}")
+logger.info(f"Output image: {out_image_name}")
+logger.info(f"Output dimensions: {w_out}x{h_out}")
+logger.info(f"Max clusters (K_max): {K_max}")
 
 # Input image setup
 
@@ -51,8 +52,7 @@ pca.fit(
 
 # Constants and initialization
 
-# T = 35  # Alternatively, T = 1.1 * pca.explained_variance_[0]
-T = 1.1 * pca.explained_variance_[0]
+T = 35  # Alternatively, T = 1.1 * pca.explained_variance_[0]
 T_final = 1
 K = 1
 
@@ -72,7 +72,6 @@ N = w_out * h_out
 if is_debug:
     logger.info(f"Principal Component Axis: {pca.components_[0]}")
     logger.info(f"PCA Variance: {pca.explained_variance_}")
-    # logger.info("")
 
 #######################################################################################################
 
@@ -157,6 +156,7 @@ class SuperPixel:
                 color[j] /= len(cluster)
             if prob > hi:
                 hi = prob
+                # Might be bug here since palette_color is never used
                 self.palette_color = color
 
     def update_pos(self):
@@ -167,10 +167,9 @@ class SuperPixel:
         if len(self.pixels) == 0:
             if is_debug:
                 logger.info(
-                    self.x, self.y, "pallete", self.pallete_color, "sp", self.sp_color
+                    f"x: {self.x}, y: {self.y}, pallete: {self.pallete_color}, sp: {self.sp_color}"
                 )
                 logger.info("super pixel without pixels failure")
-                # logger.info("")
             self.x, self.y = self.original_xy
         else:
             x /= len(self.pixels)
@@ -371,8 +370,8 @@ def associate():
         if is_debug:
             logger.info(
                 f"P_{k} = {palette[k].probability}, "
-                f"rgb color: {list(palette[k].color)}, "
-                f"lab color: {list(color_lib.lab2rgb([palette[k].color]))}"
+                f"lab color: {tuple(round(float(x), 2) for x in palette[k].color)}, "
+                f"rgb color: {tuple(round(float(x), 2) for x in color_lib.lab2rgb(palette[k].color))}"
             )
 
 
@@ -450,6 +449,7 @@ def expand():
 
         palette = new_palette
         clusters = new_clusters
+
     else:
         # So sub-clusters can separate
         for i in range(K):
@@ -479,13 +479,9 @@ while T > T_final:
             for h in range(len(clusters[k])):
                 logger.info(
                     f"cluster: {k}, h: {h}, "
-                    f"rgb color: {list(palette[clusters[k][h]].color)}, "
-                    f"lab color: {list(color_lib.lab2rgb([palette[clusters[k][h]].color]))}"
+                    f"lab color: {tuple(round(float(x), 2) for x in palette[clusters[k][h]].color)}, "
+                    f"rgb color: {tuple(round(float(x), 2) for x in color_lib.lab2rgb(palette[clusters[k][h]].color))}"
                 )
-                # for j in range(3):
-                # logger.info(f"{palette[clusters[k][h]].color[j]} ")
-                # logger.info("")
-            # logger.info("")
 
     iterations += 1
 
@@ -520,7 +516,10 @@ while T > T_final:
 
         out_image = color_lib.lab2rgb(out_lab)
         out_image = [
-            [[int(round(out_image[r][c][i] * 255)) for i in range(3)] for c in range(h_out)]
+            [
+                [int(round(out_image[r][c][i] * 255)) for i in range(3)]
+                for c in range(h_out)
+            ]
             for r in range(w_out)
         ]
 
@@ -557,3 +556,5 @@ for r in range(w_out):
         out_data[r, c] = tuple(out_image[r][c])
 
 output.save(out_image_name)
+logger.info(f"Final output saved: {out_image_name}")
+logger.info("Processing completed successfully")
