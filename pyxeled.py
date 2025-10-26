@@ -108,7 +108,7 @@ class SuperPixel:
     def __init__(self, x, y, c):
         global N
         self.x, self.y = x, y
-        self.pallete_color = c  # Color used for refining palette
+        self.palette_color = c  # Color used for refining palette
         self.p_s = 1 / N  # Probability of the super pixel (uniform for now)
         self.pixels = set()
         self.p_c = [0.5, 0.5]  # Conditional probability this super pixel belongs
@@ -121,7 +121,7 @@ class SuperPixel:
     def cost(self, x0, y0):
         global in_image
         in_color = in_image[x0][y0]
-        c_diff = color_diff(in_color, self.pallete_color)
+        c_diff = color_diff(in_color, self.palette_color)
         spatial_diff = ((self.x - x0) ** 2 + (self.y - y0) ** 2) ** 0.5
 
         return c_diff + 45 * ((N / M) ** 0.5) * spatial_diff
@@ -140,7 +140,7 @@ class SuperPixel:
 
         for i in range(len(self.p_c)):
             if self.p_c[i] == hi:
-                self.pallete_color = palette[i].color
+                self.palette_color = palette[i].color
             self.p_c[i] /= denom
 
         hi = -1
@@ -167,7 +167,7 @@ class SuperPixel:
         if len(self.pixels) == 0:
             if is_debug:
                 logger.info(
-                    self.x, self.y, "pallete", self.pallete_color, "sp", self.sp_color
+                    self.x, self.y, "palette", self.palette_color, "sp", self.sp_color
                 )
                 logger.info("super pixel without pixels failure")
                 # logger.info("")
@@ -215,7 +215,7 @@ class Color:
 
 #######################################################################################################
 
-# Initialize super pixels and color pallete
+# Initialize super pixels and color palette
 
 
 def avg_color(in_image, M):
@@ -371,8 +371,8 @@ def associate():
         if is_debug:
             logger.info(
                 f"P_{k} = {palette[k].probability}, "
-                f"rgb color: {list(palette[k].color)}, "
-                f"lab color: {list(color_lib.lab2rgb([palette[k].color]))}"
+                f"lab color: {tuple(round(float(x), 2) for x in palette[k].color)}, "
+                f"rgb color: {tuple(round(float(x), 2) for x in color_lib.lab2rgb(palette[k].color))}"
             )
 
 
@@ -479,13 +479,9 @@ while T > T_final:
             for h in range(len(clusters[k])):
                 logger.info(
                     f"cluster: {k}, h: {h}, "
-                    f"rgb color: {list(palette[clusters[k][h]].color)}, "
-                    f"lab color: {list(color_lib.lab2rgb([palette[clusters[k][h]].color]))}"
+                    f"lab color: {tuple(round(float(x), 2) for x in palette[clusters[k][h]].color)}, "
+                    f"rgb color: {tuple(round(float(x), 2) for x in color_lib.lab2rgb(palette[clusters[k][h]].color))}"
                 )
-                # for j in range(3):
-                # logger.info(f"{palette[clusters[k][h]].color[j]} ")
-                # logger.info("")
-            # logger.info("")
 
     iterations += 1
 
@@ -513,7 +509,7 @@ while T > T_final:
         for r in range(w_out):
             cur = []
             for c in range(h_out):
-                cur.append(list(super_pixels[r][c].pallete_color))
+                cur.append(list(super_pixels[r][c].palette_color))
             out_lab.append(cur)
 
         saturate(out_lab)
@@ -539,7 +535,7 @@ out_lab = []
 for r in range(w_out):
     cur = []
     for c in range(h_out):
-        cur.append(list(super_pixels[r][c].pallete_color))
+        cur.append(list(super_pixels[r][c].palette_color))
     out_lab.append(cur)
 
 saturate(out_lab)
