@@ -12,3 +12,4 @@ anyhow = "1"
 thiserror = "1"
 parking_lot = "0.12"
 num_cpus = "1.16"
+clap = { version = "4", features = ["derive"] }
