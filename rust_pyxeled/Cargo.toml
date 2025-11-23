@@ -1,0 +1,14 @@
+[package]
+name = "rust_pyxeled"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+image = "0.24"
+palette = { version = "0.7", features = ["std"] }
+log = "0.4"
+env_logger = "0.10"
+anyhow = "1"
+thiserror = "1"
+parking_lot = "0.12"
+num_cpus = "1.16"
