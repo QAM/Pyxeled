@@ -7,8 +7,12 @@ edition = "2021"
 name = "rust_pyxeled"
 crate-type = ["cdylib"]
 
+[features]
+# Enable Python extension linking behavior by default
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
+
 [dependencies]
 rust_pyxeled = { path = "../rust_pyxeled" }
 pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
 image = "0.24"
-

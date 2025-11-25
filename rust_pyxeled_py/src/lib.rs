@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-use rust_pyxeled::{default_config, process_dynamic, Config};
+use ::rust_pyxeled::{default_config, process_dynamic, Config};
 
 fn build_config_from_kwargs(
     fast: bool,
@@ -95,4 +95,3 @@ fn rust_pyxeled(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transform, m)?)?;
     Ok(())
 }
-
