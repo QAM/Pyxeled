@@ -1,7 +1,7 @@
 [project]
-name = "pyxeled"
+name = "pixel-convert-dev-env"
 version = "0.1.0"
-description = "Add your description here"
+description = "Development environment for Pixel-convert"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

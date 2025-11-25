@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "pixel_convert_py"
 dynamic = ["version"]
-description = "PyO3-powered image transform for Pyxeled (Rust core)"
+description = "PyO3-powered image transform for Pixel-convert (Rust core)"
 readme = "README.md"
 requires-python = ">=3.9"
 keywords = ["image", "rust", "pyo3", "pillow", "clustering"]
