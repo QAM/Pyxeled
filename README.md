@@ -1,4 +1,4 @@
-# Pyxeled
+# Pixel-convert
 
 Pixelation and palette abstraction based on the paper “Pixelated Image Abstraction” (Gerstner et al.).
 
@@ -189,7 +189,6 @@ python -m pytest -q
 Note: Build/install the `pixel_convert` extension first (see above), otherwise the test will be skipped.
 
 ## Notes
-- The old `pyxeled.py`/stdin configuration flow is no longer used. Prefer the Python API or the Rust CLI above.
 - Example input/output folders in this repo: `examples/input_images/`, `examples/output_images/`, `examples/combined_images/`.
 
 ## Benchmark Guide

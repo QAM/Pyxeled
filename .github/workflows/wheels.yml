@@ -70,7 +70,7 @@ jobs:
         uses: messense/maturin-action@v1
         with:
           command: sdist
-          args: -m rust_pyxeled_py/Cargo.toml
+          args: -m pixel_convert_py/Cargo.toml
       - name: Upload sdist artifact
         uses: actions/upload-artifact@v4
         with:

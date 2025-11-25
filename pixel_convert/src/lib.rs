@@ -310,7 +310,7 @@ fn tmp_progress_path(out_image_name: &str, idx: usize) -> String {
 
 /// Core algorithm operating on a provided image in memory and returning the output image buffer.
 pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max: usize, config: Config) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-    info!("Starting Pyxeled (Rust) in-memory"); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
+    info!("Starting Pixel-convert (Rust) in-memory"); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
 
     let (in_lab, w_in, h_in) = to_lab_image(dyn_img)?;
     let mut pca_data = Vec::with_capacity(w_in * h_in); for x in 0..w_in { for y in 0..h_in { pca_data.push(in_lab[x][y]); }}
@@ -345,7 +345,7 @@ pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max
 
 pub fn process(params: Params) -> Result<()> {
     let Params { in_image_name, out_image_name, w_out, h_out, k_max, config } = params;
-    info!("Starting Pyxeled (Rust)"); info!("Input image: {}", in_image_name); info!("Output image: {}", out_image_name); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
+    info!("Starting Pixel-convert (Rust)"); info!("Input image: {}", in_image_name); info!("Output image: {}", out_image_name); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
 
     let dyn_img = ImageReader::open(&in_image_name)?.decode()?; let (in_lab, w_in, h_in) = to_lab_image(&dyn_img)?;
     let mut pca_data = Vec::with_capacity(w_in * h_in); for x in 0..w_in { for y in 0..h_in { pca_data.push(in_lab[x][y]); }}

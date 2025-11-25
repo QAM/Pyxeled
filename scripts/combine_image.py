@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Image Combiner for Pyxeled Output
+Image Combiner for Pixel-convert Output
 Combines images with pattern name_1.png, name_2.png, ..., name.png
 to show the progression from step 1 to final image.
 """
@@ -126,7 +126,7 @@ def combine_images(image_paths, output_path, layout="horizontal"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Combine Pyxeled output images to show progression"
+        description="Combine Pixel-convert output images to show progression"
     )
     parser.add_argument(
         "--input-dir",

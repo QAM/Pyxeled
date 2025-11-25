@@ -4,7 +4,7 @@ Algorithm Description (pixel_convert)
 Overview
 --------
 
-This is a Rust port of the Pyxeled algorithm, which generates a pixelated/stylized rendition of an input image by optimizing a grid of “super‑pixels” and a global color palette. The method alternates between assigning input pixels to nearby super‑pixels, estimating local average colors, inferring palette color responsibilities, and refining the palette. A simulated annealing temperature T controls how strongly color distances influence assignments. The palette may expand (split) up to K_max colors.
+This is a Rust viersion of Pixelated Image Abstraction algorithm, which generates a pixelated/stylized rendition of an input image by optimizing a grid of “super‑pixels” and a global color palette. The method alternates between assigning input pixels to nearby super‑pixels, estimating local average colors, inferring palette color responsibilities, and refining the palette. A simulated annealing temperature T controls how strongly color distances influence assignments. The palette may expand (split) up to K_max colors.
 
 Relationship to the Paper
 -------------------------
