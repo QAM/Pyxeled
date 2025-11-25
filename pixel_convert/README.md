@@ -9,19 +9,19 @@ Usage
 - Build: `cargo build --release`
 
 - Run (CLI args):
-  `./target/release/pixel_convert input_images/dog3.jpg output_images/dog3_rust.png 100 100 4`
+  `./target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 4`
 
 - Help and flags:
   `./target/release/pixel_convert --help`
 
 - Fast mode (~quality tradeoffs, much faster):
-  `./target/release/pixel_convert --fast input_images/dog3.jpg output_images/dog3_rust.png 100 100 4`
+  `./target/release/pixel_convert --fast examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 4`
   - Uses 2x2 subsampling for assignment
   - More aggressive cooling and convergence thresholds
   - Slightly higher palette-change threshold
 
 - Per‑iteration timings (log at info):
-  `RUST_LOG=info ./target/release/pixel_convert --iter-timings input.jpg out.png 160 160 8`
+  `RUST_LOG=info ./target/release/pixel_convert --iter-timings examples/input_images/dog3.jpg examples/output_images/dog3_160x160_8.png 160 160 8`
 
 - Advanced overrides (after flags, before positional args):
   `--stride <n>` (both axes) | `--stride-x <n>` | `--stride-y <n>`
@@ -29,7 +29,7 @@ Usage
   `--stag-eps <f64>` | `--stag-limit <usize>` | `--threads <usize>`
   `--iter-timings` (print per-iteration timing)
   Example:
-  `./target/release/pixel_convert --fast --stride 3 --alpha 0.55 --threads 8 input.jpg out.png 160 160 8`
+  `./target/release/pixel_convert --fast --stride 3 --alpha 0.55 --threads 8 examples/input_images/dog3.jpg examples/output_images/dog3_160x160_8.png 160 160 8`
 
 Library API
 -----------
@@ -44,8 +44,8 @@ fn run() -> anyhow::Result<()> {
     cfg.stride_x = 1;
     cfg.stride_y = 1;
     let params = Params {
-        in_image_name: "input_images/dog3.jpg".into(),
-        out_image_name: "output_images/dog3_rust.png".into(),
+        in_image_name: "examples/input_images/dog3.jpg".into(),
+        out_image_name: "examples/output_images/dog3_rust.png".into(),
         w_out: 100,
         h_out: 100,
         k_max: 120,
