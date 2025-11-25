@@ -28,7 +28,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust tests
-        working-directory: pixel_convert
+        working-directory: pixel_convert_rust
         shell: bash
         run: cargo test --all-features --verbose
 
@@ -40,7 +40,7 @@ jobs:
       - name: Build and install Python extension (develop)
         shell: bash
         run: |
-          uv run maturin develop -m pixel_convert_py/Cargo.toml
+          uv run maturin develop -m pixel_convert/Cargo.toml
 
       - name: Run Python tests
         shell: bash

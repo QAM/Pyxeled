@@ -1,5 +1,5 @@
 use image::{DynamicImage, ImageBuffer, Rgb};
-use pixel_convert::{default_config, process_dynamic};
+use pixel_convert_rust::{default_config, process_dynamic};
 
 #[test]
 fn outputs_expected_dimensions() {

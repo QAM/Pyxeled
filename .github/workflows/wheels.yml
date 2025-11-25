@@ -17,11 +17,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            args: --release -m pixel_convert_py/Cargo.toml --strip
+            args: --release -m pixel_convert/Cargo.toml --strip
           - os: windows-latest
-            args: --release -m pixel_convert_py/Cargo.toml --strip
+            args: --release -m pixel_convert/Cargo.toml --strip
           - os: macos-14
-            args: --release -m pixel_convert_py/Cargo.toml --target aarch64-apple-darwin --strip
+            args: --release -m pixel_convert/Cargo.toml --target aarch64-apple-darwin --strip
 
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
         uses: messense/maturin-action@v1
         with:
           command: sdist
-          args: -m pixel_convert_py/Cargo.toml
+          args: -m pixel_convert/Cargo.toml
       - name: Upload sdist artifact
         uses: actions/upload-artifact@v4
         with:
