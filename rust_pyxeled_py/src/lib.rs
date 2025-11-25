@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-use ::rust_pyxeled::{default_config, process_dynamic, Config};
+use ::rust_pyxeled::{default_config, process, process_dynamic, Config, Params};
 
 fn build_config_from_kwargs(
     fast: bool,
@@ -93,5 +93,59 @@ pub fn transform(
 #[pymodule]
 fn rust_pyxeled(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transform, m)?)?;
+    m.add_function(wrap_pyfunction!(transform_file, m)?)?;
+    Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (
+    input_path,
+    output_path,
+    width,
+    height,
+    kmax,
+    *,
+    fast = false,
+    stride = None,
+    stride_x = None,
+    stride_y = None,
+    alpha = None,
+    epsilon_palette = None,
+    t_final = None,
+    stag_eps = None,
+    stag_limit = None,
+    threads = None,
+))]
+pub fn transform_file(
+    _py: Python<'_>,
+    input_path: &str,
+    output_path: &str,
+    width: usize,
+    height: usize,
+    kmax: usize,
+    fast: bool,
+    stride: Option<usize>,
+    stride_x: Option<usize>,
+    stride_y: Option<usize>,
+    alpha: Option<f64>,
+    epsilon_palette: Option<f64>,
+    t_final: Option<f64>,
+    stag_eps: Option<f64>,
+    stag_limit: Option<usize>,
+    threads: Option<usize>,
+) -> PyResult<()> {
+    let cfg = build_config_from_kwargs(
+        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads,
+    );
+    let params = Params {
+        in_image_name: input_path.to_string(),
+        out_image_name: output_path.to_string(),
+        w_out: width,
+        h_out: height,
+        k_max: kmax,
+        config: cfg,
+    };
+    process(params)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }
