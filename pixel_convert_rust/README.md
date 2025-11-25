@@ -31,6 +31,36 @@ Usage
   Example:
   `./target/release/pixel_convert --fast --stride 3 --alpha 0.55 --threads 8 examples/input_images/dog3.jpg examples/output_images/dog3_160x160_8.png 160 160 8`
 
+Palette mapping subcommand
+--------------------------
+
+Map each pixel to the nearest color from a provided palette. Algorithms: `rgb`, `lab`, `ciede2000`.
+
+```bash
+# Built-in DMC palette (no need to pass colors)
+./target/release/pixel_convert map \
+  --palette dmc --algorithm ciede2000 \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_dmc.png
+
+# RGB, colors as R,G,B tuples
+./target/release/pixel_convert map \
+  --algorithm rgb \
+  --color 0,0,0 --color 255,255,255 --color 220,20,60 \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_rgb.png
+
+# Lab Euclidean (DeltaE76), hex colors
+./target/release/pixel_convert map \
+  --algorithm lab \
+  --color #000000 --color #FFFFFF --color #DC143C \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_lab.png
+
+# CIEDE2000 (perceptual)
+./target/release/pixel_convert map \
+  --algorithm ciede2000 \
+  --color #000000 --color #FFFFFF --color #DC143C \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_ciede2000.png
+```
+
 Library API
 -----------
 
