@@ -2,7 +2,7 @@ import unittest
 from PIL import Image
 
 try:
-    import rust_pyxeled as rx
+    import pixel_convert as rx
 except Exception as e:  # pragma: no cover
     rx = None
     _import_error = e
@@ -11,7 +11,7 @@ except Exception as e:  # pragma: no cover
 class TestPythonTransform(unittest.TestCase):
     def setUp(self):
         if rx is None:
-            self.skipTest(f"rust_pyxeled not built: {_import_error}")
+            self.skipTest(f"pixel_convert not built: {_import_error}")
 
     def test_returns_pil_image_with_expected_size(self):
         # Create a small RGB image in memory

@@ -1,4 +1,4 @@
-Algorithm Description (rust_pyxeled)
+Algorithm Description (pixel_convert)
 ====================================
 
 Overview

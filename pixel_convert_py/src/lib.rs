@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-use ::rust_pyxeled::{default_config, process_dynamic, Config};
+use ::pixel_convert::{default_config, process, process_dynamic, Config, Params};
 
 fn build_config_from_kwargs(
     fast: bool,
@@ -14,6 +14,7 @@ fn build_config_from_kwargs(
     stag_eps: Option<f64>,
     stag_limit: Option<usize>,
     threads: Option<usize>,
+    iter_timings: bool,
 ) -> Config {
     let mut cfg = default_config(fast);
     if let Some(v) = stride { cfg.stride_x = v; cfg.stride_y = v; }
@@ -25,6 +26,7 @@ fn build_config_from_kwargs(
     if let Some(v) = stag_eps { cfg.stag_eps = v; }
     if let Some(v) = stag_limit { cfg.stag_limit = v; }
     if let Some(v) = threads { cfg.num_threads = v.max(1); }
+    cfg.iter_timings = iter_timings;
     cfg
 }
 
@@ -45,6 +47,7 @@ fn build_config_from_kwargs(
     stag_eps = None,
     stag_limit = None,
     threads = None,
+    iter_timings = false,
 ))]
 pub fn transform(
     py: Python<'_>,
@@ -62,6 +65,7 @@ pub fn transform(
     stag_eps: Option<f64>,
     stag_limit: Option<usize>,
     threads: Option<usize>,
+    iter_timings: bool,
 ) -> PyResult<PyObject> {
     // Ensure RGB and pull pixel data
     let img_rgb = image.call_method1("convert", ("RGB",))?;
@@ -75,7 +79,7 @@ pub fn transform(
 
     // Build config
     let cfg = build_config_from_kwargs(
-        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads,
+        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings,
     );
 
     // Run algorithm
@@ -91,7 +95,63 @@ pub fn transform(
 }
 
 #[pymodule]
-fn rust_pyxeled(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn pixel_convert(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transform, m)?)?;
+    m.add_function(wrap_pyfunction!(transform_file, m)?)?;
+    Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (
+    input_path,
+    output_path,
+    width,
+    height,
+    kmax,
+    *,
+    fast = false,
+    stride = None,
+    stride_x = None,
+    stride_y = None,
+    alpha = None,
+    epsilon_palette = None,
+    t_final = None,
+    stag_eps = None,
+    stag_limit = None,
+    threads = None,
+    iter_timings = false,
+))]
+pub fn transform_file(
+    _py: Python<'_>,
+    input_path: &str,
+    output_path: &str,
+    width: usize,
+    height: usize,
+    kmax: usize,
+    fast: bool,
+    stride: Option<usize>,
+    stride_x: Option<usize>,
+    stride_y: Option<usize>,
+    alpha: Option<f64>,
+    epsilon_palette: Option<f64>,
+    t_final: Option<f64>,
+    stag_eps: Option<f64>,
+    stag_limit: Option<usize>,
+    threads: Option<usize>,
+    iter_timings: bool,
+) -> PyResult<()> {
+    let cfg = build_config_from_kwargs(
+        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings,
+    );
+    let params = Params {
+        in_image_name: input_path.to_string(),
+        out_image_name: output_path.to_string(),
+        w_out: width,
+        h_out: height,
+        k_max: kmax,
+        config: cfg,
+    };
+    process(params)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }

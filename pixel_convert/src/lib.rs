@@ -9,6 +9,7 @@ use std::f64::consts::E;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, Default)]
 struct Vec3 {
@@ -68,13 +69,14 @@ pub struct Config {
     pub stag_eps: f64,
     pub stag_limit: usize,
     pub num_threads: usize,
+    pub iter_timings: bool,
 }
 
 pub fn default_config(fast: bool) -> Config {
     if fast {
-        Config { stride_x: 2, stride_y: 2, t_final: 2.0, alpha: 0.6, epsilon_palette: 2.0, stag_eps: 1e-4, stag_limit: 3, num_threads: num_cpus::get().max(1) }
+        Config { stride_x: 2, stride_y: 2, t_final: 2.0, alpha: 0.6, epsilon_palette: 2.0, stag_eps: 1e-4, stag_limit: 3, num_threads: num_cpus::get().max(1), iter_timings: false }
     } else {
-        Config { stride_x: 1, stride_y: 1, t_final: 1.0, alpha: 0.7, epsilon_palette: 1.0, stag_eps: 1e-6, stag_limit: 5, num_threads: num_cpus::get().max(1) }
+        Config { stride_x: 1, stride_y: 1, t_final: 1.0, alpha: 0.7, epsilon_palette: 1.0, stag_eps: 1e-6, stag_limit: 5, num_threads: num_cpus::get().max(1), iter_timings: false }
     }
 }
 
@@ -175,34 +177,68 @@ impl SuperPixel {
 
 fn in_bounds(r: isize, c: isize, w_out: usize, h_out: usize) -> bool { r >= 0 && c >= 0 && (r as usize) < w_out && (c as usize) < h_out }
 
-fn sp_thread(coords: Coords, super_pixels: Arc<Vec<Vec<Arc<RwLock<SuperPixel>>>>>, in_image: Arc<Vec<Vec<Vec3>>>, n: usize, m: usize, w_in: usize, h_in: usize, w_out: usize, h_out: usize) {
-    let dx = [-1, -1, -1, 0, 0, 0, 1, 1, 1];
-    let dy = [-1, 0, 1, -1, 0, 1, -1, 0, 1];
-    loop {
-        let cur = coords.next(); let (x, y) = match cur { Some(v) => v, None => break };
-        let r = (x * w_out) / w_in; let c = (y * h_out) / h_in;
-        let mut best_cost = f64::INFINITY; let mut best_pair = (r as isize, c as isize);
-        for i in 0..9 {
-            let rr = r as isize + dx[i]; let cc = c as isize + dy[i]; if !in_bounds(rr, cc, w_out, h_out) { continue; }
-            let sp_r = super_pixels[rr as usize][cc as usize].read();
-            let cost = sp_r.cost(x, y, &in_image, n, m); if cost < best_cost { best_cost = cost; best_pair = (rr, cc); }
-        }
-        let sp = &super_pixels[best_pair.0 as usize][best_pair.1 as usize];
-        let sp_read = sp.read(); sp_read.add_pixel(x, y, &in_image);
-    }
-}
-
 fn sp_refine(super_pixels: &Vec<Vec<Arc<RwLock<SuperPixel>>>>, in_image: &Vec<Vec<Vec3>>, num_threads: usize, w_in: usize, h_in: usize, w_out: usize, h_out: usize, stride_x: usize, stride_y: usize, m_full: usize) {
     let n = w_out * h_out;
-    for row in super_pixels.iter() { for sp in row.iter() { sp.write().clear_pixels(); }}
-    let coords = Coords::new(w_in, h_in, w_out, stride_x, stride_y);
-    let sp_arc = Arc::new(super_pixels.clone()); let in_arc = Arc::new(in_image.clone());
+
+    // Compute the sampling grid size (matches Coords::new logic)
+    let nx = (w_in + stride_x - 1) / stride_x;
+    let ny = (h_in + stride_y - 1) / stride_y;
+    let m_samp = nx * ny;
+
+    // Per-thread accumulators to avoid hot mutex contention
+    #[derive(Default, Clone, Copy)]
+    struct LocalAccum { count: usize, sum_x: f64, sum_y: f64, sum_l: f64, sum_a: f64, sum_b: f64 }
+
+    let sp_arc = Arc::new(super_pixels.clone());
+    let in_arc = Arc::new(in_image.clone());
+
+    // Parallel assignment into thread-local accumulators (no locks on hot path)
     let mut handles = Vec::new();
-    for _ in 0..num_threads { let coords_c = coords.clone(); let sp_c = sp_arc.clone(); let in_c = in_arc.clone();
-        let h = thread::spawn(move || { sp_thread(coords_c, sp_c, in_c, n, m_full, w_in, h_in, w_out, h_out); });
-        handles.push(h);
+    for t in 0..num_threads {
+        let sp_c = sp_arc.clone();
+        let in_c = in_arc.clone();
+        let stride_x_c = stride_x; let stride_y_c = stride_y;
+        let start = t * ((m_samp + num_threads - 1) / num_threads);
+        let end = ((t + 1) * ((m_samp + num_threads - 1) / num_threads)).min(m_samp);
+        let w_in_c = w_in; let h_in_c = h_in; let w_out_c = w_out; let h_out_c = h_out;
+        let n_c = n; let m_full_c = m_full;
+        let handle = thread::spawn(move || {
+            let mut acc: Vec<Vec<LocalAccum>> = vec![vec![LocalAccum::default(); h_out_c]; w_out_c];
+            let dx = [-1, -1, -1, 0, 0, 0, 1, 1, 1];
+            let dy = [-1, 0, 1, -1, 0, 1, -1, 0, 1];
+            for s in start..end {
+                let sx = s % nx; let sy = s / nx;
+                let x = sx * stride_x_c; let y = sy * stride_y_c;
+                let r = (x * w_out_c) / w_in_c; let c = (y * h_out_c) / h_in_c;
+                let mut best_cost = f64::INFINITY; let mut best_pair = (r as isize, c as isize);
+                for i in 0..9 {
+                    let rr = r as isize + dx[i]; let cc = c as isize + dy[i];
+                    if !in_bounds(rr, cc, w_out_c, h_out_c) { continue; }
+                    let sp_r = sp_c[rr as usize][cc as usize].read();
+                    let cost = sp_r.cost(x, y, &in_c, n_c, m_full_c);
+                    if cost < best_cost { best_cost = cost; best_pair = (rr, cc); }
+                }
+                let rr = best_pair.0 as usize; let cc = best_pair.1 as usize;
+                let p = in_c[x][y];
+                let a = &mut acc[rr][cc];
+                a.count += 1;
+                a.sum_x += x as f64; a.sum_y += y as f64;
+                a.sum_l += p.x; a.sum_a += p.y; a.sum_b += p.z;
+            }
+            acc
+        });
+        handles.push(handle);
     }
-    for h in handles { let _ = h.join(); }
+    let mut thread_accums: Vec<Vec<Vec<LocalAccum>>> = Vec::with_capacity(num_threads);
+    for h in handles { thread_accums.push(h.join().unwrap_or_else(|_| vec![vec![LocalAccum::default(); h_out]; w_out])); }
+
+    // Merge all thread-local accumulators once per cell
+    for r in 0..w_out { for c in 0..h_out {
+        let mut total = LocalAccum::default();
+        for t in 0..num_threads { let a = thread_accums[t][r][c]; total.count += a.count; total.sum_x += a.sum_x; total.sum_y += a.sum_y; total.sum_l += a.sum_l; total.sum_a += a.sum_a; total.sum_b += a.sum_b; }
+        let mut sp = super_pixels[r][c].write();
+        { let mut acc = sp.accum.lock(); acc.count = total.count; acc.sum_x = total.sum_x; acc.sum_y = total.sum_y; acc.sum_l = total.sum_l; acc.sum_a = total.sum_a; acc.sum_b = total.sum_b; }
+    }}
 
     // Update pos and color
     for r in 0..w_out { for c in 0..h_out { let mut sp = super_pixels[r][c].write(); sp.update_pos(); sp.update_sp_color(in_image); }}
@@ -291,6 +327,7 @@ pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max
 
     let mut iterations = 0usize; let mut stagnant = 0usize;
     while t > t_final {
+        let iter_start = if config.iter_timings { Some(Instant::now()) } else { None };
         iterations += 1; info!("K={}, T={:.3}, iter={}", k, t, iterations);
         sp_refine(&super_pixels, &in_lab, num_threads, w_in, h_in, w_out, h_out, config.stride_x, config.stride_y, m_full);
         associate(&super_pixels, &mut palette, &clusters, t);
@@ -299,6 +336,7 @@ pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max
         if total_change < config.stag_eps { stagnant += 1; } else { stagnant = 0; }
         if stagnant >= config.stag_limit { info!("Early stop: converged (stagnation)"); break; }
         if iterations >= 1010 { warn!("Max iterations reached"); break; }
+        if let Some(start) = iter_start { info!("iter_time_ms={}", start.elapsed().as_millis()); }
     }
 
     let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
@@ -324,6 +362,7 @@ pub fn process(params: Params) -> Result<()> {
 
     let mut iterations = 0usize; let mut stagnant = 0usize;
     while t > t_final {
+        let iter_start = if config.iter_timings { Some(Instant::now()) } else { None };
         iterations += 1; info!("K={}, T={:.3}, iter={}", k, t, iterations);
         sp_refine(&super_pixels, &in_lab, num_threads, w_in, h_in, w_out, h_out, config.stride_x, config.stride_y, m_full);
         associate(&super_pixels, &mut palette, &clusters, t);
@@ -333,11 +372,12 @@ pub fn process(params: Params) -> Result<()> {
         if stagnant >= config.stag_limit { info!("Early stop: converged (stagnation)"); break; }
         if iterations >= 1010 { warn!("Max iterations reached"); break; }
         if iterations % 100 == 0 && iterations > 1 { let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out); let tmp_path = tmp_progress_path(&out_image_name, iterations/100); out_img.save(&tmp_path)?; info!("Intermediate output saved: {}", tmp_path); }
+        if let Some(start) = iter_start { info!("iter_time_ms={}", start.elapsed().as_millis()); }
     }
 
     let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out); out_img.save(out_image_name)?; info!("Final output saved");
     Ok(())
 }
 
-// Python bindings live in a separate module to keep lib.rs focused
+// Python bindings live in a separate module to keep lib.rs focused.
 // Python bindings are moved to a separate crate to avoid linking issues during `cargo test`.

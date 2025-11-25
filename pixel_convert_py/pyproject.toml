@@ -3,7 +3,7 @@ requires = ["maturin>=1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "rust_pyxeled"
+name = "pixel_convert_py"
 dynamic = ["version"]
 description = "PyO3-powered image transform for Pyxeled (Rust core)"
 readme = "README.md"
@@ -23,5 +23,5 @@ dependencies = [
 
 [tool.maturin]
 features = ["pyo3/extension-module", "pyo3/abi3-py39"]
-module-name = "rust_pyxeled"
+module-name = "pixel_convert"
 manifest-path = "Cargo.toml"

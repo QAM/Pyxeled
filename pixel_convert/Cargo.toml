@@ -1,11 +1,11 @@
 [package]
-name = "rust_pyxeled"
+name = "pixel_convert"
 version = "0.1.0"
 edition = "2021"
 
 # Core library only; Python bindings live in a sibling crate
 [lib]
-name = "rust_pyxeled"
+name = "pixel_convert"
 crate-type = ["rlib"]
 
 [dependencies]
@@ -18,3 +18,8 @@ thiserror = "1"
 parking_lot = "0.12"
 num_cpus = "1.16"
 clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "thin"

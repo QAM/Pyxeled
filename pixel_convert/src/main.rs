@@ -1,9 +1,10 @@
+// CLI entry for pixel_convert
 use anyhow::Result;
 use clap::{ArgAction, Parser, ValueHint};
-use rust_pyxeled::{default_config, process, Config, Params};
+use pixel_convert::{default_config, process, Config, Params};
 
 #[derive(Parser, Debug)]
-#[command(name = "rust_pyxeled", version, about = "Rust port of Pyxeled image algorithm")]
+#[command(name = "pixel_convert", version, about = "Pixel Convert image algorithm (Rust core)")]
 struct Cli {
     /// Fast preset (subsampling + aggressive cooling)
     #[arg(short = 'f', long = "fast", action = ArgAction::SetTrue)]
@@ -38,6 +39,10 @@ struct Cli {
     #[arg(long = "threads")]
     threads: Option<usize>,
 
+    /// Print per-iteration timings (ms)
+    #[arg(long = "iter-timings", action = ArgAction::SetTrue)]
+    iter_timings: bool,
+
     /// Input image path
     #[arg(value_hint = ValueHint::FilePath)]
     input: String,
@@ -63,6 +68,7 @@ fn build_config(cli: &Cli) -> Config {
     if let Some(v) = cli.stag_eps { cfg.stag_eps = v; }
     if let Some(v) = cli.stag_limit { cfg.stag_limit = v; }
     if let Some(v) = cli.threads { cfg.num_threads = v.max(1); }
+    if cli.iter_timings { cfg.iter_timings = true; }
     cfg
 }
 
@@ -80,4 +86,3 @@ fn main() -> Result<()> {
     };
     process(params)
 }
-

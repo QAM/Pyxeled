@@ -1,10 +1,10 @@
 [package]
-name = "rust_pyxeled_py"
+name = "pixel_convert_py"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "rust_pyxeled"
+name = "pixel_convert"
 crate-type = ["cdylib"]
 
 [features]
@@ -13,6 +13,11 @@ extension-module = ["pyo3/extension-module"]
 default = ["extension-module"]
 
 [dependencies]
-rust_pyxeled = { path = "../rust_pyxeled" }
+pixel_convert = { path = "../pixel_convert" }
 pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
 image = "0.24"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "thin"
