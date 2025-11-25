@@ -3,7 +3,7 @@ requires = ["maturin>=1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "pixel_convert_py"
+name = "pixel-convert"
 dynamic = ["version"]
 description = "PyO3-powered image transform for Pixel-convert (Rust core)"
 readme = "README.md"

@@ -85,13 +85,13 @@ Tip: If Pillow image conversion/tobytes is a bottleneck for you, prefer `transfo
 Option A: develop install (easy for local iteration)
 ```
 pip install maturin
-maturin develop -m pixel_convert_py/Cargo.toml
+maturin develop -m pixel_convert/Cargo.toml
 ```
 
 Option B: build a wheel, then install
 ```
 pip install maturin
-maturin build -m pixel_convert_py/Cargo.toml --release
+maturin build -m pixel_convert/Cargo.toml --release
 pip install target/wheels/*.whl
 ```
 
@@ -173,9 +173,9 @@ The script creates files like `combined_images/dog3_progression.png` that show s
 
 If you prefer a CLI, the Rust implementation provides one:
 ```
-cargo build --release
-./target/release/pixel_convert --help
-./target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 30
+cd pixel_convert_rust && cargo build --release && cd -
+pixel_convert_rust/target/release/pixel_convert --help
+pixel_convert_rust/target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 30
 # Fast mode
 ./target/release/pixel_convert --fast examples/input_images/dog3.jpg examples/output_images/dog3_rust_fast.png 100 100 30
 ```
@@ -201,9 +201,9 @@ Note: Build/install the `pixel_convert` extension first (see above), otherwise t
 - Rust CLI (release)
   - Build: `cargo build --release`
   - Single run with timings: 
-    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 1 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t1.png 100 100 30`
+    `RUST_LOG=info pixel_convert_rust/target/release/pixel_convert --iter-timings --threads 1 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t1.png 100 100 30`
   - Thread sweep (try 1,2,3,4,6,8):
-    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 4 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t4.png 100 100 30`
+    `RUST_LOG=info pixel_convert_rust/target/release/pixel_convert --iter-timings --threads 4 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t4.png 100 100 30`
   - Optional: `--fast` for speed/quality tradeoff.
 
 - Python API (file→file, release wheel)

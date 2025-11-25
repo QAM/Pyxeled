@@ -1,65 +1,47 @@
-pixel_convert
-=============
+pixel_convert (Python package)
 
-A Rust image processing core with a clean CLI (clap) and a reusable library API.
+This package exposes a Python API backed by the Rust `pixel_convert_rust` core via PyO3.
 
-Usage
------
+API
+- `pixel_convert.transform(image: PIL.Image.Image, width: int, height: int, kmax: int, *, fast=False, stride=None, stride_x=None, stride_y=None, alpha=None, epsilon_palette=None, t_final=None, stag_eps=None, stag_limit=None, threads=None, iter_timings=False) -> PIL.Image.Image`
+- `pixel_convert.transform_file(input_path: str, output_path: str, width: int, height: int, kmax: int, *, fast=False, stride=None, stride_x=None, stride_y=None, alpha=None, epsilon_palette=None, t_final=None, stag_eps=None, stag_limit=None, threads=None, iter_timings=False) -> None`
 
-- Build: `cargo build --release`
+Build from source
+- `pip install maturin`
+- `maturin build -m pixel_convert/Cargo.toml --release`
+- `pip install target/wheels/*.whl`
 
-- Run (CLI args):
-  `./target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 4`
+Develop install for local testing
+- `maturin develop -m pixel_convert/Cargo.toml`
 
-- Help and flags:
-  `./target/release/pixel_convert --help`
-
-- Fast mode (~quality tradeoffs, much faster):
-  `./target/release/pixel_convert --fast examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 4`
-  - Uses 2x2 subsampling for assignment
-  - More aggressive cooling and convergence thresholds
-  - Slightly higher palette-change threshold
-
-- Per‑iteration timings (log at info):
-  `RUST_LOG=info ./target/release/pixel_convert --iter-timings examples/input_images/dog3.jpg examples/output_images/dog3_160x160_8.png 160 160 8`
-
-- Advanced overrides (after flags, before positional args):
-  `--stride <n>` (both axes) | `--stride-x <n>` | `--stride-y <n>`
-  `--alpha <f64>` | `--epsilon-palette <f64>` | `--t-final <f64>`
-  `--stag-eps <f64>` | `--stag-limit <usize>` | `--threads <usize>`
-  `--iter-timings` (print per-iteration timing)
-  Example:
-  `./target/release/pixel_convert --fast --stride 3 --alpha 0.55 --threads 8 examples/input_images/dog3.jpg examples/output_images/dog3_160x160_8.png 160 160 8`
-
-Library API
------------
-
-Use the core algorithm in your own Rust code:
-
+Example
 ```
-use pixel_convert::{process, default_config, Params};
+from PIL import Image
+import pixel_convert as rx
 
-fn run() -> anyhow::Result<()> {
-    let mut cfg = default_config(false); // or true for fast preset
-    cfg.stride_x = 1;
-    cfg.stride_y = 1;
-    let params = Params {
-        in_image_name: "examples/input_images/dog3.jpg".into(),
-        out_image_name: "examples/output_images/dog3_rust.png".into(),
-        w_out: 100,
-        h_out: 100,
-        k_max: 120,
-        config: cfg,
-    };
-    process(params)
-}
+img = Image.open("examples/input_images/dog3.jpg")
+out = rx.transform(img, 128, 128, 30, fast=True)
+out.save("examples/output_images/dog3_py_128x128_30.png")
 ```
 
-Notes
------
+File-to-file example (faster, Rust handles I/O)
+```
+import pixel_convert as rx
 
-- Color conversions use the `palette` crate (sRGB <-> CIE Lab, D65).
-- 3x3 neighborhood search for assignments + edge-aware smoothing for stability.
-- PCA's first component via power iteration on the 3x3 covariance.
-- Logging via `env_logger`; set `RUST_LOG=info` for progress.
-- See `algorithm_description.md` for a full algorithm walk-through and references.
+rx.transform_file(
+    "examples/input_images/dog3.jpg",
+    "examples/output_images/dog3_py_128x128_30.png",
+    128,
+    128,
+    30,
+    fast=True,
+    threads=4,
+)
+```
+
+Timing per iteration (logs)
+```
+import pixel_convert as rx, os
+os.environ["RUST_LOG"] = "info"
+rx.transform_file("examples/input_images/dog3.jpg", "examples/output_images/dog3_py_128x128_30.png", 128, 128, 30, iter_timings=True)
+```

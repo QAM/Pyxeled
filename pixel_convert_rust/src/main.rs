@@ -1,7 +1,7 @@
 // CLI entry for pixel_convert
 use anyhow::Result;
 use clap::{ArgAction, Parser, ValueHint};
-use pixel_convert::{default_config, process, Config, Params};
+use pixel_convert_rust::{default_config, process, Config, Params};
 
 #[derive(Parser, Debug)]
 #[command(name = "pixel_convert", version, about = "Pixel Convert image algorithm (Rust core)")]

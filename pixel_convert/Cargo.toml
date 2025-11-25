@@ -3,21 +3,19 @@ name = "pixel_convert"
 version = "0.1.0"
 edition = "2021"
 
-# Core library only; Python bindings live in a sibling crate
 [lib]
 name = "pixel_convert"
-crate-type = ["rlib"]
+crate-type = ["cdylib"]
+
+[features]
+# Enable Python extension linking behavior by default
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
 
 [dependencies]
+pixel_convert_rust = { path = "../pixel_convert_rust" }
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
 image = "0.24"
-palette = { version = "0.7", features = ["std"] }
-log = "0.4"
-env_logger = "0.10"
-anyhow = "1"
-thiserror = "1"
-parking_lot = "0.12"
-num_cpus = "1.16"
-clap = { version = "4", features = ["derive"] }
 
 [profile.release]
 opt-level = 3

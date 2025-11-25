@@ -1,15 +1,15 @@
 .PHONY: build-cli build-cli-native bench-cli bench-py build-py help setup setup-py setup-rust wheel-py
 
 # Defaults (override on the command line)
-IMG ?= input_images/dog3.jpg
-OUT ?= output_images/bench_out.png
+IMG ?= examples/input_images/dog3.jpg
+OUT ?= examples/output_images/bench_out.png
 W   ?= 100
 H   ?= 100
 K   ?= 30
 THREADS ?= 1 2 3 4 6 8
 PYTHON ?= python3
 FAST ?= True
-CLI_BIN ?= pixel_convert/target/release/pixel_convert
+CLI_BIN ?= pixel_convert_rust/target/release/pixel_convert
 
 help:
 	@echo "Targets:"
@@ -25,11 +25,11 @@ help:
 
 build-cli:
 	@echo "Building Rust CLI (pixel_convert) in release..."
-	cd pixel_convert && cargo build --release
+	cd pixel_convert_rust && cargo build --release
 
 build-cli-native:
 	@echo "Building Rust CLI (native CPU tuning) in release..."
-	cd pixel_convert && RUSTFLAGS="-C target-cpu=native" cargo build --release
+	cd pixel_convert_rust && RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 bench-cli: build-cli
 	@echo "Benchmarking Rust CLI on $(IMG) -> $(OUT) at $(W)x$(H), K=$(K)"
@@ -47,7 +47,7 @@ bench-py:
 
 build-py:
 	@echo "Building/Installing Python extension (maturin develop --release)..."
-	maturin develop -m pixel_convert_py/Cargo.toml --release
+	maturin develop -m pixel_convert/Cargo.toml --release
 
 setup: setup-py setup-rust
 
@@ -80,5 +80,5 @@ wheel-py:
 	  echo "maturin not found. Run 'make setup-py' first"; \
 	  exit 1; \
 	fi
-	maturin build -m pixel_convert_py/Cargo.toml --release --strip
+	maturin build -m pixel_convert/Cargo.toml --release --strip
 	pip install target/wheels/*.whl --force-reinstall
