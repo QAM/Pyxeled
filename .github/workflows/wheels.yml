@@ -83,6 +83,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -90,8 +91,8 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Publish to PyPI (API Token)
+      - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
