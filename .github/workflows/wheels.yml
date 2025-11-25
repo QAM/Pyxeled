@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ runner.os }}
-          path: target/wheels/*
+          path: pixel_convert_py/target/wheels/*
 
   sdist:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sdist
-          path: target/wheels/*
+          path: pixel_convert_py/target/wheels/*
 
   publish:
     needs: [build-wheels, sdist]
