@@ -19,9 +19,9 @@ Example
 from PIL import Image
 import pixel_convert as rx
 
-img = Image.open("input.jpg")
+img = Image.open("examples/input_images/dog3.jpg")
 out = rx.transform(img, 128, 128, 30, fast=True)
-out.save("out.png")
+out.save("examples/output_images/dog3_py_128x128_30.png")
 ```
 
 File-to-file example (faster, Rust handles I/O)
@@ -29,8 +29,8 @@ File-to-file example (faster, Rust handles I/O)
 import pixel_convert as rx
 
 rx.transform_file(
-    "input.jpg",
-    "out.png",
+    "examples/input_images/dog3.jpg",
+    "examples/output_images/dog3_py_128x128_30.png",
     128,
     128,
     30,
@@ -43,5 +43,5 @@ Timing per iteration (logs)
 ```
 import pixel_convert as rx, os
 os.environ["RUST_LOG"] = "info"
-rx.transform_file("input.jpg", "out.png", 128, 128, 30, iter_timings=True)
+rx.transform_file("examples/input_images/dog3.jpg", "examples/output_images/dog3_py_128x128_30.png", 128, 128, 30, iter_timings=True)
 ```

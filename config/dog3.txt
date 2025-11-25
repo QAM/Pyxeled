@@ -1,4 +1,0 @@
-input_images/dog3.jpg
-output_images/dog3_30colors.png
-100 100
-30

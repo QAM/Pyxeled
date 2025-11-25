@@ -103,11 +103,11 @@ from PIL import Image
 import pixel_convert as rx
 
 # Load any RGB image
-img = Image.open("input_images/dog3.jpg")
+img = Image.open("examples/input_images/dog3.jpg")
 
 # 100x100 output with a 30-color palette
 out = rx.transform(img, 100, 100, 30, fast=True, threads=4)
-out.save("output_images/dog3_100x100_30.png")
+out.save("examples/output_images/dog3_100x100_30.png")
 ```
 
 ### File-to-file example (fastest path)
@@ -115,8 +115,8 @@ out.save("output_images/dog3_100x100_30.png")
 import pixel_convert as rx
 
 rx.transform_file(
-    "input_images/dog3.jpg",
-    "output_images/dog3_100x100_30.png",
+    "examples/input_images/dog3.jpg",
+    "examples/output_images/dog3_100x100_30.png",
     100,
     100,
     30,
@@ -131,8 +131,8 @@ from PIL import Image
 import pixel_convert as rx
 from pathlib import Path
 
-inp = Path("input_images/dog3.jpg")
-out_dir = Path("output_images")
+inp = Path("examples/input_images/dog3.jpg")
+out_dir = Path("examples/output_images")
 out_dir.mkdir(exist_ok=True)
 
 cfgs = [
@@ -164,7 +164,7 @@ python combine_image.py --layout grid
 python combine_image.py --group dog3
 
 # Custom directories
-python combine_image.py --input-dir output_images --output-dir combined_images
+python combine_image.py --input-dir examples/output_images --output-dir examples/combined_images
 ```
 
 The script creates files like `combined_images/dog3_progression.png` that show step images followed by the final image.
@@ -175,9 +175,9 @@ If you prefer a CLI, the Rust implementation provides one:
 ```
 cargo build --release
 ./target/release/pixel_convert --help
-./target/release/pixel_convert input_images/dog3.jpg output_images/dog3_rust.png 100 100 30
+./target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 30
 # Fast mode
-./target/release/pixel_convert --fast input.jpg out.png 100 100 30
+./target/release/pixel_convert --fast examples/input_images/dog3.jpg examples/output_images/dog3_rust_fast.png 100 100 30
 ```
 
 ## Testing
@@ -190,7 +190,7 @@ Note: Build/install the `pixel_convert` extension first (see above), otherwise t
 
 ## Notes
 - The old `pyxeled.py`/stdin configuration flow is no longer used. Prefer the Python API or the Rust CLI above.
-- Example input/output folders in this repo: `input_images/`, `output_images/`, `combined_images/`.
+- Example input/output folders in this repo: `examples/input_images/`, `examples/output_images/`, `examples/combined_images/`.
 
 ## Benchmark Guide
 
@@ -202,15 +202,15 @@ Note: Build/install the `pixel_convert` extension first (see above), otherwise t
 - Rust CLI (release)
   - Build: `cargo build --release`
   - Single run with timings: 
-    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 1 input.jpg out.png 100 100 30`
+    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 1 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t1.png 100 100 30`
   - Thread sweep (try 1,2,3,4,6,8):
-    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 4 input.jpg out.png 100 100 30`
+    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 4 examples/input_images/dog3.jpg examples/output_images/dog3_iter_t4.png 100 100 30`
   - Optional: `--fast` for speed/quality tradeoff.
 
 - Python API (file→file, release wheel)
   - Ensure the extension is built/installed in release.
   - Run with timings:
-    `RUST_LOG=info python -c 'import pixel_convert as rx; rx.transform_file("input.jpg","out.png",100,100,30, threads=1, fast=True, iter_timings=True)'
+    `RUST_LOG=info python -c 'import pixel_convert as rx; rx.transform_file("examples/input_images/dog3.jpg","examples/output_images/dog3_py_t1.png",100,100,30, threads=1, fast=True, iter_timings=True)'
     `
   - Sweep threads as above (1,2,3,4,6,8) and compare wall time and `iter_time_ms`.
 
