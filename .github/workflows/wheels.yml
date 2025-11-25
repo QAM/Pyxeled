@@ -1,0 +1,92 @@
+name: Build Wheels
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+
+jobs:
+  build-wheels:
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            args: --release -m rust_pyxeled_py/Cargo.toml --manylinux 2014
+          - os: windows-latest
+            args: --release -m rust_pyxeled_py/Cargo.toml
+          - os: macos-14
+            args: --release -m rust_pyxeled_py/Cargo.toml --universal2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build with maturin
+        uses: messense/maturin-action@v1
+        with:
+          command: build
+          args: ${{ matrix.args }}
+
+      - name: Show wheels
+        shell: bash
+        run: ls -al target/wheels
+
+      - name: Install built wheel and test
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pillow
+          pip install target/wheels/*.whl
+          python -m unittest tests/test_transform.py -v
+
+      - name: Upload wheels artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ runner.os }}
+          path: target/wheels/*
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build sdist
+        uses: messense/maturin-action@v1
+        with:
+          command: sdist
+          args: -m rust_pyxeled_py/Cargo.toml
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: target/wheels/*
+
+  publish:
+    needs: [build-wheels, sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    permissions:
+      contents: read
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI (API Token)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
