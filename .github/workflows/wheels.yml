@@ -83,6 +83,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pixel-convert
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
