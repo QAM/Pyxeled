@@ -3,11 +3,11 @@
 Pixelation and palette abstraction based on the paper “Pixelated Image Abstraction” (Gerstner et al.).
 
 This repo contains:
-- A Rust core (`rust_pyxeled`) with a CLI
-- A Python package (PyO3 bindings) exposing the algorithm as `rust_pyxeled.transform`
+- A Rust core (`pixel_convert`) with a CLI
+- A Python package (PyO3 bindings) exposing the algorithm as `pixel_convert.transform`
 - A small Python utility (`combine_image.py`) to stitch step images into a single “progression” image
 
-If you want a deeper dive into the algorithm and examples, see the Rust docs in `rust_pyxeled/algorithm_description.md`.
+If you want a deeper dive into the algorithm and examples, see the algorithm description in the Rust crate (algorithm_description.md).
 
 ## Requirements
 - Python 3.12+
@@ -15,15 +15,21 @@ If you want a deeper dive into the algorithm and examples, see the Rust docs in 
 - Rust toolchain (for building the Python extension)
 - Optional: `maturin` for building/installing the Python bindings
 
+Quick setup
+- Make sure you have Rust (rustup) and uv installed, then run:
+  - `make setup` (creates `.venv`, installs dev deps via uv or pip fallback, and ensures Rust stable toolchain)
+  - `make build-py` (installs the Python extension in release into the venv)
+  - Optional native-tuned CLI build: `make build-cli-native` (uses `-C target-cpu=native`)
+
 The top-level `pyproject.toml` also lists Python dependencies used in examples and tooling.
 
 ## Python API (recommended)
 
-The Python API is provided by the native extension module `rust_pyxeled`, built from `rust_pyxeled_py/`.
+The Python API is provided by the native extension module `pixel_convert` (built from the PyO3 crate).
 
 Functions:
 ```
-rust_pyxeled.transform(
+pixel_convert.transform(
   image: PIL.Image.Image,
   width: int,
   height: int,
@@ -39,9 +45,10 @@ rust_pyxeled.transform(
   stag_eps: float | None = None,
   stag_limit: int | None = None,
   threads: int | None = None,
+  iter_timings: bool = False,
 ) -> PIL.Image.Image
 
-rust_pyxeled.transform_file(
+pixel_convert.transform_file(
   input_path: str,
   output_path: str,
   width: int,
@@ -58,6 +65,7 @@ rust_pyxeled.transform_file(
   stag_eps: float | None = None,
   stag_limit: int | None = None,
   threads: int | None = None,
+  iter_timings: bool = False,
 ) -> None
 ```
 
@@ -68,6 +76,7 @@ Parameters:
 - `stride`, `stride_x`, `stride_y`: optional pixel subsampling for speed
 - `alpha`, `epsilon_palette`, `t_final`, `stag_eps`, `stag_limit`: advanced convergence controls
 - `threads`: number of threads (>= 1)
+- `iter_timings`: print per-iteration timing to logs (info)
 
 Tip: If Pillow image conversion/tobytes is a bottleneck for you, prefer `transform_file(...)` so Rust performs file I/O directly.
 
@@ -76,22 +85,22 @@ Tip: If Pillow image conversion/tobytes is a bottleneck for you, prefer `transfo
 Option A: develop install (easy for local iteration)
 ```
 pip install maturin
-maturin develop -m rust_pyxeled_py/Cargo.toml
+maturin develop -m pixel_convert_py/Cargo.toml
 ```
 
 Option B: build a wheel, then install
 ```
 pip install maturin
-maturin build -m rust_pyxeled_py/Cargo.toml --release
+maturin build -m pixel_convert_py/Cargo.toml --release
 pip install target/wheels/*.whl
 ```
 
-After installation, you can `import rust_pyxeled` in Python.
+After installation, you can `import pixel_convert` in Python.
 
 ### Quickstart example
 ```python
 from PIL import Image
-import rust_pyxeled as rx
+import pixel_convert as rx
 
 # Load any RGB image
 img = Image.open("input_images/dog3.jpg")
@@ -103,7 +112,7 @@ out.save("output_images/dog3_100x100_30.png")
 
 ### File-to-file example (fastest path)
 ```python
-import rust_pyxeled as rx
+import pixel_convert as rx
 
 rx.transform_file(
     "input_images/dog3.jpg",
@@ -119,7 +128,7 @@ rx.transform_file(
 ### Batch example (multiple sizes/palettes)
 ```python
 from PIL import Image
-import rust_pyxeled as rx
+import pixel_convert as rx
 from pathlib import Path
 
 inp = Path("input_images/dog3.jpg")
@@ -162,13 +171,13 @@ The script creates files like `combined_images/dog3_progression.png` that show s
 
 ## Rust CLI (optional)
 
-If you prefer a CLI, the Rust implementation provides one in `rust_pyxeled/`:
+If you prefer a CLI, the Rust implementation provides one:
 ```
 cargo build --release
-./target/release/rust_pyxeled --help
-./target/release/rust_pyxeled input_images/dog3.jpg output_images/dog3_rust.png 100 100 30
+./target/release/pixel_convert --help
+./target/release/pixel_convert input_images/dog3.jpg output_images/dog3_rust.png 100 100 30
 # Fast mode
-./target/release/rust_pyxeled --fast input.jpg out.png 100 100 30
+./target/release/pixel_convert --fast input.jpg out.png 100 100 30
 ```
 
 ## Testing
@@ -177,8 +186,35 @@ There is a basic Python test that exercises the extension:
 ```
 python -m pytest -q
 ```
-Note: Build/install the `rust_pyxeled` extension first (see above), otherwise the test will be skipped.
+Note: Build/install the `pixel_convert` extension first (see above), otherwise the test will be skipped.
 
 ## Notes
 - The old `pyxeled.py`/stdin configuration flow is no longer used. Prefer the Python API or the Rust CLI above.
 - Example input/output folders in this repo: `input_images/`, `output_images/`, `combined_images/`.
+
+## Benchmark Guide
+
+- General
+  - Use identical inputs and parameters across runs (`fast`, `threads`, `width`, `height`, `kmax`).
+  - Warm the cache: run twice and time the second run.
+  - Enable per‑iteration logs for insight: set `RUST_LOG=info` and `iter_timings`/`--iter-timings`.
+
+- Rust CLI (release)
+  - Build: `cargo build --release`
+  - Single run with timings: 
+    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 1 input.jpg out.png 100 100 30`
+  - Thread sweep (try 1,2,3,4,6,8):
+    `RUST_LOG=info ./target/release/pixel_convert --iter-timings --threads 4 input.jpg out.png 100 100 30`
+  - Optional: `--fast` for speed/quality tradeoff.
+
+- Python API (file→file, release wheel)
+  - Ensure the extension is built/installed in release.
+  - Run with timings:
+    `RUST_LOG=info python -c 'import pixel_convert as rx; rx.transform_file("input.jpg","out.png",100,100,30, threads=1, fast=True, iter_timings=True)'
+    `
+  - Sweep threads as above (1,2,3,4,6,8) and compare wall time and `iter_time_ms`.
+
+
+- Interpreting results
+  - Prefer the smallest wall time; in many cases small thread counts perform best.
+  - If Python is consistently slower than the CLI with identical params, check that both are the same architecture (e.g., arm64) and that the Python wheel is release‑optimized.

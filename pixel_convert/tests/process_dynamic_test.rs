@@ -1,5 +1,5 @@
 use image::{DynamicImage, ImageBuffer, Rgb};
-use rust_pyxeled::{default_config, process_dynamic};
+use pixel_convert::{default_config, process_dynamic};
 
 #[test]
 fn outputs_expected_dimensions() {
@@ -19,4 +19,3 @@ fn outputs_expected_dimensions() {
     assert_eq!(out.width(), w_out as u32);
     assert_eq!(out.height(), h_out as u32);
 }
-

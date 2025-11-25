@@ -9,6 +9,7 @@ use std::f64::consts::E;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, Default)]
 struct Vec3 {
@@ -68,13 +69,14 @@ pub struct Config {
     pub stag_eps: f64,
     pub stag_limit: usize,
     pub num_threads: usize,
+    pub iter_timings: bool,
 }
 
 pub fn default_config(fast: bool) -> Config {
     if fast {
-        Config { stride_x: 2, stride_y: 2, t_final: 2.0, alpha: 0.6, epsilon_palette: 2.0, stag_eps: 1e-4, stag_limit: 3, num_threads: num_cpus::get().max(1) }
+        Config { stride_x: 2, stride_y: 2, t_final: 2.0, alpha: 0.6, epsilon_palette: 2.0, stag_eps: 1e-4, stag_limit: 3, num_threads: num_cpus::get().max(1), iter_timings: false }
     } else {
-        Config { stride_x: 1, stride_y: 1, t_final: 1.0, alpha: 0.7, epsilon_palette: 1.0, stag_eps: 1e-6, stag_limit: 5, num_threads: num_cpus::get().max(1) }
+        Config { stride_x: 1, stride_y: 1, t_final: 1.0, alpha: 0.7, epsilon_palette: 1.0, stag_eps: 1e-6, stag_limit: 5, num_threads: num_cpus::get().max(1), iter_timings: false }
     }
 }
 
@@ -325,6 +327,7 @@ pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max
 
     let mut iterations = 0usize; let mut stagnant = 0usize;
     while t > t_final {
+        let iter_start = if config.iter_timings { Some(Instant::now()) } else { None };
         iterations += 1; info!("K={}, T={:.3}, iter={}", k, t, iterations);
         sp_refine(&super_pixels, &in_lab, num_threads, w_in, h_in, w_out, h_out, config.stride_x, config.stride_y, m_full);
         associate(&super_pixels, &mut palette, &clusters, t);
@@ -333,6 +336,7 @@ pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max
         if total_change < config.stag_eps { stagnant += 1; } else { stagnant = 0; }
         if stagnant >= config.stag_limit { info!("Early stop: converged (stagnation)"); break; }
         if iterations >= 1010 { warn!("Max iterations reached"); break; }
+        if let Some(start) = iter_start { info!("iter_time_ms={}", start.elapsed().as_millis()); }
     }
 
     let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
@@ -358,6 +362,7 @@ pub fn process(params: Params) -> Result<()> {
 
     let mut iterations = 0usize; let mut stagnant = 0usize;
     while t > t_final {
+        let iter_start = if config.iter_timings { Some(Instant::now()) } else { None };
         iterations += 1; info!("K={}, T={:.3}, iter={}", k, t, iterations);
         sp_refine(&super_pixels, &in_lab, num_threads, w_in, h_in, w_out, h_out, config.stride_x, config.stride_y, m_full);
         associate(&super_pixels, &mut palette, &clusters, t);
@@ -367,11 +372,12 @@ pub fn process(params: Params) -> Result<()> {
         if stagnant >= config.stag_limit { info!("Early stop: converged (stagnation)"); break; }
         if iterations >= 1010 { warn!("Max iterations reached"); break; }
         if iterations % 100 == 0 && iterations > 1 { let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out); let tmp_path = tmp_progress_path(&out_image_name, iterations/100); out_img.save(&tmp_path)?; info!("Intermediate output saved: {}", tmp_path); }
+        if let Some(start) = iter_start { info!("iter_time_ms={}", start.elapsed().as_millis()); }
     }
 
     let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out); out_img.save(out_image_name)?; info!("Final output saved");
     Ok(())
 }
 
-// Python bindings live in a separate module to keep lib.rs focused
+// Python bindings live in a separate module to keep lib.rs focused.
 // Python bindings are moved to a separate crate to avoid linking issues during `cargo test`.
