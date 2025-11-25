@@ -40,7 +40,7 @@ jobs:
       - name: Build and install Python extension (develop)
         shell: bash
         run: |
-          uv run maturin develop -m pixel_convert/Cargo.toml
+          uv run maturin develop -m pixel_convert/Cargo.toml --release
 
       - name: Run Python tests
         shell: bash

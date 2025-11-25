@@ -1,6 +1,6 @@
 [package]
 name = "pixel_convert_rust"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # Core library only; Python bindings live in a sibling crate

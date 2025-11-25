@@ -67,6 +67,19 @@ pixel_convert.transform_file(
   threads: int | None = None,
   iter_timings: bool = False,
 ) -> None
+
+pixel_convert.map_to_colors_image(
+  image: PIL.Image.Image,
+  colors: list[tuple[int,int,int]],
+  algorithm: str = "rgb",
+) -> PIL.Image.Image
+
+pixel_convert.map_to_colors_file(
+  input_path: str,
+  output_path: str,
+  colors: list[tuple[int,int,int]],
+  algorithm: str = "rgb",
+) -> None
 ```
 
 Parameters:
@@ -178,6 +191,50 @@ pixel_convert_rust/target/release/pixel_convert --help
 pixel_convert_rust/target/release/pixel_convert examples/input_images/dog3.jpg examples/output_images/dog3_rust.png 100 100 30
 # Fast mode
 ./target/release/pixel_convert --fast examples/input_images/dog3.jpg examples/output_images/dog3_rust_fast.png 100 100 30
+```
+
+### Palette mapping to a fixed color list
+
+Map every pixel to the nearest color in a given palette.
+
+- Python (from PIL image):
+
+```
+from PIL import Image
+import pixel_convert as rx
+
+img = Image.open("examples/input_images/dog3.jpg")
+palette = [(0,0,0), (255,255,255), (220,20,60)]
+for algo in ["rgb", "lab", "ciede2000"]:
+    out = rx.map_to_colors_image(img, palette, algorithm=algo)
+    out.save(f"examples/output_images/dog3_map_{algo}.png")
+```
+
+- Python (file-to-file):
+
+```
+import pixel_convert as rx
+palette = [(0,0,0), (255,255,255), (220,20,60)]
+rx.map_to_colors_file(
+    "examples/input_images/dog3.jpg",
+    "examples/output_images/dog3_map_ciede.png",
+    palette,
+    algorithm="ciede2000",
+)
+```
+
+- Rust CLI subcommand:
+
+```
+./target/release/pixel_convert map \
+  --algorithm ciede2000 \
+  --color 0,0,0 --color 255,255,255 --color 220,20,60 \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_cli.png
+
+# Or use built-in DMC palette
+./target/release/pixel_convert map \
+  --palette dmc --algorithm ciede2000 \
+  examples/input_images/dog3.jpg examples/output_images/dog3_map_cli_dmc.png
 ```
 
 ## Testing

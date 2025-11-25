@@ -1,7 +1,11 @@
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
-use ::pixel_convert_rust::{default_config, process, process_dynamic, Config, Params};
+use ::pixel_convert_rust::{
+    default_config, process, process_dynamic, Config, Params,
+    map_file_to_palette, map_image_to_palette, ColorDistanceAlgorithm,
+    named_palette, named_palette_vec,
+};
 
 fn build_config_from_kwargs(
     fast: bool,
@@ -98,6 +102,10 @@ pub fn transform(
 fn pixel_convert(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transform, m)?)?;
     m.add_function(wrap_pyfunction!(transform_file, m)?)?;
+    m.add_function(wrap_pyfunction!(map_to_colors_file, m)?)?;
+    m.add_function(wrap_pyfunction!(map_to_colors_image, m)?)?;
+    m.add_function(wrap_pyfunction!(map_to_named_palette_image, m)?)?;
+    m.add_function(wrap_pyfunction!(map_to_named_palette_file, m)?)?;
     Ok(())
 }
 
@@ -153,5 +161,104 @@ pub fn transform_file(
     };
     process(params)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(())
+}
+
+
+/// Map each pixel of a PIL image to the nearest color in `colors` using the chosen `algorithm`.
+/// Returns a new PIL Image in RGB mode.
+#[pyfunction]
+#[pyo3(signature = (image, colors, algorithm = "rgb"))]
+pub fn map_to_colors_image(
+    py: Python<'_>,
+    image: &PyAny,
+    colors: Vec<(u8, u8, u8)>,
+    algorithm: &str,
+) -> PyResult<PyObject> {
+    if colors.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err("colors list must not be empty"));
+    }
+
+    let img_rgb = image.call_method1("convert", ("RGB",))?;
+    let (w, h): (u32, u32) = img_rgb.getattr("size")?.extract()?;
+    let data: Vec<u8> = img_rgb.call_method0("tobytes")?.extract()?;
+
+    let buf = image::ImageBuffer::<image::Rgb<u8>, Vec<u8>>::from_raw(w, h, data)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid image buffer size"))?;
+
+    let algo = ColorDistanceAlgorithm::from_str(algorithm);
+    let out = map_image_to_palette(&buf, &colors, algo);
+    let bytes = out.into_raw();
+    let pil = PyModule::import(py, "PIL.Image")?;
+    let py_img = pil
+        .call_method1("frombytes", ("RGB", (w, h), PyBytes::new(py, &bytes)))?;
+    Ok(py_img.into())
+}
+
+/// Map each pixel of an input file to the nearest color in `colors` using the chosen `algorithm`.
+#[pyfunction]
+#[pyo3(signature = (input_path, output_path, colors, algorithm = "rgb"))]
+pub fn map_to_colors_file(
+    _py: Python<'_>,
+    input_path: &str,
+    output_path: &str,
+    colors: Vec<(u8, u8, u8)>,
+    algorithm: &str,
+) -> PyResult<()> {
+    if colors.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err("colors list must not be empty"));
+    }
+    let algo = ColorDistanceAlgorithm::from_str(algorithm);
+    map_file_to_palette(input_path, output_path, &colors, algo)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+    Ok(())
+}
+
+/// Map to a named, built-in palette (e.g., "dmc"). Returns a new PIL Image.
+#[pyfunction]
+#[pyo3(signature = (image, palette_name, algorithm = "rgb"))]
+pub fn map_to_named_palette_image(
+    py: Python<'_>,
+    image: &PyAny,
+    palette_name: &str,
+    algorithm: &str,
+) -> PyResult<PyObject> {
+    let colors = named_palette_vec(palette_name)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err(format!("unknown palette: {}", palette_name)))?;
+    if colors.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err("named palette is empty (not embedded)"));
+    }
+    let img_rgb = image.call_method1("convert", ("RGB",))?;
+    let (w, h): (u32, u32) = img_rgb.getattr("size")?.extract()?;
+    let data: Vec<u8> = img_rgb.call_method0("tobytes")?.extract()?;
+    let buf = image::ImageBuffer::<image::Rgb<u8>, Vec<u8>>::from_raw(w, h, data)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid image buffer size"))?;
+    let algo = ColorDistanceAlgorithm::from_str(algorithm);
+    let out = map_image_to_palette(&buf, &colors, algo);
+    let bytes = out.into_raw();
+    let pil = PyModule::import(py, "PIL.Image")?;
+    let py_img = pil
+        .call_method1("frombytes", ("RGB", (w, h), PyBytes::new(py, &bytes)))?;
+    Ok(py_img.into())
+}
+
+/// Map file-to-file using a named, built-in palette (e.g., "dmc").
+#[pyfunction]
+#[pyo3(signature = (input_path, output_path, palette_name, algorithm = "rgb"))]
+pub fn map_to_named_palette_file(
+    _py: Python<'_>,
+    input_path: &str,
+    output_path: &str,
+    palette_name: &str,
+    algorithm: &str,
+) -> PyResult<()> {
+    let colors = named_palette_vec(palette_name)
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err(format!("unknown palette: {}", palette_name)))?;
+    if colors.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err("named palette is empty (not embedded)"));
+    }
+    let algo = ColorDistanceAlgorithm::from_str(algorithm);
+    map_file_to_palette(input_path, output_path, &colors, algo)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
     Ok(())
 }

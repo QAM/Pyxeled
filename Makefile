@@ -10,6 +10,7 @@ THREADS ?= 1 2 3 4 6 8
 PYTHON ?= python3
 FAST ?= True
 CLI_BIN ?= pixel_convert_rust/target/release/pixel_convert
+CLI_BIN_DBG ?= pixel_convert_rust/target/debug/pixel_convert
 
 help:
 	@echo "Targets:"
@@ -21,6 +22,7 @@ help:
 	@echo "  setup-py          - Create .venv and install deps via uv (or pip fallback)"
 	@echo "  setup-rust        - Ensure Rust toolchain (rustup stable)"
 	@echo "  wheel-py          - Build a release wheel and install"
+	@echo "  map-dmc-all       - Generate RGB/Lab/CIEDE2000 maps using built-in DMC palette"
 	@echo "Variables (override): IMG OUT W H K THREADS PYTHON FAST"
 
 build-cli:
@@ -82,3 +84,13 @@ wheel-py:
 	fi
 	maturin build -m pixel_convert/Cargo.toml --release --strip
 	pip install target/wheels/*.whl --force-reinstall
+
+# Generate palette-mapped outputs using built-in DMC palette (RGB/Lab/CIEDE2000)
+.PHONY: map-dmc-all
+map-dmc-all: build-cli
+	@echo "Mapping $(IMG) to built-in DMC palette (RGB/Lab/CIEDE2000)..."
+	@base=$$(basename $(IMG)); base="$${base%.*}"; \
+	  $(CLI_BIN) map --palette dmc --algorithm rgb "$(IMG)" "examples/output_images/$${base}_map_dmc_rgb.png"; \
+	  $(CLI_BIN) map --palette dmc --algorithm lab "$(IMG)" "examples/output_images/$${base}_map_dmc_lab.png"; \
+	  $(CLI_BIN) map --palette dmc --algorithm ciede2000 "$(IMG)" "examples/output_images/$${base}_map_dmc_ciede.png"; \
+	  echo "Outputs saved to examples/output_images/$${base}_map_dmc_*.png"
