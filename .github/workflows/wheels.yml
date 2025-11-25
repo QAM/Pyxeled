@@ -17,13 +17,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            args: --release -m pixel_convert_py/Cargo.toml --manylinux 2014 --strip
+            args: --release -m pixel_convert_py/Cargo.toml --strip
           - os: windows-latest
             args: --release -m pixel_convert_py/Cargo.toml --strip
           - os: macos-14
             args: --release -m pixel_convert_py/Cargo.toml --target aarch64-apple-darwin --strip
-          - os: macos-13
-            args: --release -m pixel_convert_py/Cargo.toml --target x86_64-apple-darwin --strip
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +37,7 @@ jobs:
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
         with:
           command: build
+          manylinux: "2014"
           args: ${{ matrix.args }}
 
       - name: Show wheels
