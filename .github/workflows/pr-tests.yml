@@ -1,0 +1,48 @@
+name: PR Tests
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: Rust and Python tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust tests
+        working-directory: rust_pyxeled
+        shell: bash
+        run: cargo test --all-features --verbose
+
+      - name: Create and sync uv env (dev)
+        shell: bash
+        run: |
+          uv sync --group dev
+
+      - name: Build and install Python extension (develop)
+        shell: bash
+        run: |
+          uv run maturin develop -m rust_pyxeled_py/Cargo.toml
+
+      - name: Run Python tests
+        shell: bash
+        run: |
+          uv run python -m unittest -v tests/test_transform.py

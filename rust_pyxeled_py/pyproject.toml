@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "rust_pyxeled"
+dynamic = ["version"]
+description = "PyO3-powered image transform for Pyxeled (Rust core)"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["image", "rust", "pyo3", "pillow", "clustering"]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+  "pillow>=9",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module", "pyo3/abi3-py39"]
+module-name = "rust_pyxeled"
+manifest-path = "Cargo.toml"

@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use image::{io::Reader as ImageReader, ImageBuffer, Rgb};
+use image::{io::Reader as ImageReader, DynamicImage, ImageBuffer, Rgb};
 use log::{info, warn};
 use palette::{FromColor, IntoColor, Lab, LinSrgb, Srgb};
 use parking_lot::{Mutex, RwLock};
@@ -272,6 +272,39 @@ fn tmp_progress_path(out_image_name: &str, idx: usize) -> String {
     let p = Path::new(out_image_name); let parent: PathBuf = p.parent().unwrap_or_else(|| Path::new("")).to_path_buf(); let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("output"); let filename = format!("{}_{}.png", stem, idx); parent.join(filename).to_string_lossy().into_owned()
 }
 
+/// Core algorithm operating on a provided image in memory and returning the output image buffer.
+pub fn process_dynamic(dyn_img: &DynamicImage, w_out: usize, h_out: usize, k_max: usize, config: Config) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
+    info!("Starting Pyxeled (Rust) in-memory"); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
+
+    let (in_lab, w_in, h_in) = to_lab_image(dyn_img)?;
+    let mut pca_data = Vec::with_capacity(w_in * h_in); for x in 0..w_in { for y in 0..h_in { pca_data.push(in_lab[x][y]); }}
+    let pc1 = pca_first_component(&pca_data)?; let delta = pc1.scale(1.5); info!("PCA first component: [{:.3}, {:.3}, {:.3}]", pc1.x, pc1.y, pc1.z);
+
+    let mut t = 35.0f64; let t_final = config.t_final; let mut k = 1usize; let alpha = config.alpha; let epsilon_palette = config.epsilon_palette; let epsilon_cluster = 0.25f64; let num_threads = config.num_threads; let m_full = w_in * h_in; let n = w_out * h_out;
+
+    let avg_color = { let mut s = Vec3::default(); for v in &pca_data { s = s.add(*v); } s.scale(1.0 / (pca_data.len() as f64)) };
+    let xs: Vec<usize> = (0..w_out).map(|r| (r * w_in) / w_out).collect(); let ys: Vec<usize> = (0..h_out).map(|c| (c * h_in) / h_out).collect();
+    let mut super_pixels: Vec<Vec<Arc<RwLock<SuperPixel>>>> = vec![vec![]; w_out];
+    for r in 0..w_out { for c in 0..h_out { let xi = xs[r]; let yi = ys[c]; let sp = SuperPixel::new(xi as f64, yi as f64, avg_color, 1.0 / (n as f64), in_lab[xi][yi]); super_pixels[r].push(Arc::new(RwLock::new(sp))); }}
+
+    let mut palette = vec![ ColorEntry { color: avg_color, probability: 0.5 }, ColorEntry { color: avg_color.add(delta), probability: 0.5 } ]; let mut clusters: Vec<(usize, usize)> = vec![(0, 1)];
+
+    let mut iterations = 0usize; let mut stagnant = 0usize;
+    while t > t_final {
+        iterations += 1; info!("K={}, T={:.3}, iter={}", k, t, iterations);
+        sp_refine(&super_pixels, &in_lab, num_threads, w_in, h_in, w_out, h_out, config.stride_x, config.stride_y, m_full);
+        associate(&super_pixels, &mut palette, &clusters, t);
+        let total_change = palette_refine(&super_pixels, &mut palette);
+        if total_change < epsilon_palette { t *= alpha; if k < k_max { expand(&mut clusters, &mut palette, epsilon_cluster, &mut k, k_max, delta); }}
+        if total_change < config.stag_eps { stagnant += 1; } else { stagnant = 0; }
+        if stagnant >= config.stag_limit { info!("Early stop: converged (stagnation)"); break; }
+        if iterations >= 1010 { warn!("Max iterations reached"); break; }
+    }
+
+    let mut out_lab = vec![vec![Vec3::default(); h_out]; w_out]; for r in 0..w_out { for c in 0..h_out { out_lab[r][c] = super_pixels[r][c].read().palette_color; }} saturate(&mut out_lab, w_out, h_out); let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
+    Ok(out_img)
+}
+
 pub fn process(params: Params) -> Result<()> {
     let Params { in_image_name, out_image_name, w_out, h_out, k_max, config } = params;
     info!("Starting Pyxeled (Rust)"); info!("Input image: {}", in_image_name); info!("Output image: {}", out_image_name); info!("Output dimensions: {}x{}", w_out, h_out); info!("Max clusters (K_max): {}", k_max);
@@ -306,3 +339,5 @@ pub fn process(params: Params) -> Result<()> {
     Ok(())
 }
 
+// Python bindings live in a separate module to keep lib.rs focused
+// Python bindings are moved to a separate crate to avoid linking issues during `cargo test`.

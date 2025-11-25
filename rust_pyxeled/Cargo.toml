@@ -3,6 +3,11 @@ name = "rust_pyxeled"
 version = "0.1.0"
 edition = "2021"
 
+# Core library only; Python bindings live in a sibling crate
+[lib]
+name = "rust_pyxeled"
+crate-type = ["rlib"]
+
 [dependencies]
 image = "0.24"
 palette = { version = "0.7", features = ["std"] }
