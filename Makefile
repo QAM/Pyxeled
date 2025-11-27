@@ -83,7 +83,7 @@ wheel-py:
 	  exit 1; \
 	fi
 	maturin build -m pixel_convert/Cargo.toml --release --strip
-	pip install target/wheels/*.whl --force-reinstall
+	uv pip install pixel_convert/target/wheels/*.whl --force-reinstall
 
 # Generate palette-mapped outputs using built-in DMC palette (RGB/Lab/CIEDE2000)
 .PHONY: map-dmc-all
