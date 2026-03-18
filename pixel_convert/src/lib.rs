@@ -19,6 +19,8 @@ fn build_config_from_kwargs(
     stag_limit: Option<usize>,
     threads: Option<usize>,
     iter_timings: bool,
+    saturation_factor: Option<f64>,
+    spatial_weight: Option<f64>,
 ) -> Config {
     let mut cfg = default_config(fast);
     if let Some(v) = stride { cfg.stride_x = v; cfg.stride_y = v; }
@@ -31,6 +33,8 @@ fn build_config_from_kwargs(
     if let Some(v) = stag_limit { cfg.stag_limit = v; }
     if let Some(v) = threads { cfg.num_threads = v.max(1); }
     cfg.iter_timings = iter_timings;
+    if let Some(v) = saturation_factor { cfg.saturation_factor = v; }
+    cfg.spatial_weight = spatial_weight;
     cfg
 }
 
@@ -52,6 +56,8 @@ fn build_config_from_kwargs(
     stag_limit = None,
     threads = None,
     iter_timings = false,
+    saturation_factor = None,
+    spatial_weight = None,
 ))]
 pub fn transform(
     py: Python<'_>,
@@ -70,6 +76,8 @@ pub fn transform(
     stag_limit: Option<usize>,
     threads: Option<usize>,
     iter_timings: bool,
+    saturation_factor: Option<f64>,
+    spatial_weight: Option<f64>,
 ) -> PyResult<PyObject> {
     // Ensure RGB and pull pixel data
     let img_rgb = image.call_method1("convert", ("RGB",))?;
@@ -83,7 +91,7 @@ pub fn transform(
 
     // Build config
     let cfg = build_config_from_kwargs(
-        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings,
+        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings, saturation_factor, spatial_weight,
     );
 
     // Run algorithm
@@ -128,6 +136,8 @@ fn pixel_convert(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     stag_limit = None,
     threads = None,
     iter_timings = false,
+    saturation_factor = None,
+    spatial_weight = None,
 ))]
 pub fn transform_file(
     _py: Python<'_>,
@@ -147,9 +157,11 @@ pub fn transform_file(
     stag_limit: Option<usize>,
     threads: Option<usize>,
     iter_timings: bool,
+    saturation_factor: Option<f64>,
+    spatial_weight: Option<f64>,
 ) -> PyResult<()> {
     let cfg = build_config_from_kwargs(
-        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings,
+        fast, stride, stride_x, stride_y, alpha, epsilon_palette, t_final, stag_eps, stag_limit, threads, iter_timings, saturation_factor, spatial_weight,
     );
     let params = Params {
         in_image_name: input_path.to_string(),
