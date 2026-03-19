@@ -1,6 +1,10 @@
 name: Build Wheels
 
 on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
   release:
     types: [published]
 
@@ -13,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            args: --release -m pixel_convert/Cargo.toml --strip
+            args: --release -m pixel_convert/Cargo.toml --strip -i python3.12
           - os: windows-latest
             args: --release -m pixel_convert/Cargo.toml --strip
           - os: macos-14
