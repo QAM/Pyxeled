@@ -37,7 +37,7 @@ jobs:
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
         with:
           command: build
-          manylinux: "2014"
+          manylinux: "2_17"
           args: ${{ matrix.args }}
 
       - name: Show wheels
