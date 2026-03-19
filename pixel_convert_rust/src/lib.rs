@@ -1,11 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use image::{io::Reader as ImageReader, DynamicImage, ImageBuffer, Rgb};
 use log::{info, warn};
 use palette::{FromColor, IntoColor, Lab, LinSrgb, Srgb};
 use parking_lot::{Mutex, RwLock};
 use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::f64::consts::E;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
@@ -164,37 +162,6 @@ pub struct Params {
 }
 
 #[derive(Clone)]
-struct Coords {
-    n: Arc<Mutex<usize>>,
-    m: usize,
-    w_in: usize,
-    h_in: usize,
-    w_out: usize,
-    stride_x: usize,
-    stride_y: usize,
-}
-impl Coords {
-    fn new(w_in: usize, h_in: usize, w_out: usize, stride_x: usize, stride_y: usize) -> Self {
-        let nx = (w_in + stride_x - 1) / stride_x;
-        let ny = (h_in + stride_y - 1) / stride_y;
-        let m = nx * ny;
-        Self { n: Arc::new(Mutex::new(0)), m, w_in, h_in, w_out, stride_x, stride_y }
-    }
-    fn next(&self) -> Option<(usize, usize)> {
-        let mut guard = self.n.lock();
-        if *guard >= self.m {
-            return None;
-        }
-        let idx = *guard;
-        *guard += 1;
-        let nx = (self.w_in + self.stride_x - 1) / self.stride_x;
-        let sx = idx % nx;
-        let sy = idx / nx;
-        Some((sx * self.stride_x, sy * self.stride_y))
-    }
-}
-
-#[derive(Clone)]
 struct ColorEntry {
     color: Vec3,
     probability: f64,
@@ -251,19 +218,6 @@ impl SuperPixel {
         let dx = self.x - x0 as f64;
         let dy = self.y - y0 as f64;
         c_diff + spatial_w * ((n as f64 / m as f64).sqrt()) * (dx * dx + dy * dy).sqrt()
-    }
-    fn add_pixel(&self, x0: usize, y0: usize, in_image: &[Vec<Vec3>]) {
-        let mut a = self.accum.lock();
-        a.count += 1;
-        a.sum_x += x0 as f64;
-        a.sum_y += y0 as f64;
-        let p = in_image[x0][y0];
-        a.sum_l += p.x;
-        a.sum_a += p.y;
-        a.sum_b += p.z;
-    }
-    fn clear_pixels(&self) {
-        *self.accum.lock() = Accum::default();
     }
     fn normalize_probs(&mut self, palette: &[ColorEntry]) {
         let mut denom: f64 = self.p_c.iter().copied().sum();
@@ -414,7 +368,7 @@ fn sp_refine(
                 total.sum_a += a.sum_a;
                 total.sum_b += a.sum_b;
             }
-            let mut sp = super_pixels[r][c].write();
+            let sp = super_pixels[r][c].write();
             {
                 let mut acc = sp.accum.lock();
                 acc.count = total.count;

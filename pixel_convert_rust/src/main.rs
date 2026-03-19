@@ -1,6 +1,6 @@
 // CLI entry for pixel_convert
 use anyhow::{bail, Result};
-use clap::{ArgAction, Args, Parser, ValueHint};
+use clap::{ArgAction, Parser, ValueHint};
 use pixel_convert_rust::{
     default_config, load_palette_file, map_file_to_palette, named_palette_vec, process, ColorDistanceAlgorithm, Config,
     Params,
