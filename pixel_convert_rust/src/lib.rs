@@ -1,11 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use image::{io::Reader as ImageReader, DynamicImage, ImageBuffer, Rgb};
 use log::{info, warn};
 use palette::{FromColor, IntoColor, Lab, LinSrgb, Srgb};
 use parking_lot::{Mutex, RwLock};
 use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::f64::consts::E;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
@@ -117,6 +115,8 @@ pub struct Config {
     pub stag_limit: usize,
     pub num_threads: usize,
     pub iter_timings: bool,
+    pub saturation_factor: f64,
+    pub spatial_weight: Option<f64>,
 }
 
 pub fn default_config(fast: bool) -> Config {
@@ -131,6 +131,8 @@ pub fn default_config(fast: bool) -> Config {
             stag_limit: 3,
             num_threads: num_cpus::get().max(1),
             iter_timings: false,
+            saturation_factor: 1.1,
+            spatial_weight: None,
         }
     } else {
         Config {
@@ -143,6 +145,8 @@ pub fn default_config(fast: bool) -> Config {
             stag_limit: 5,
             num_threads: num_cpus::get().max(1),
             iter_timings: false,
+            saturation_factor: 1.1,
+            spatial_weight: None,
         }
     }
 }
@@ -155,37 +159,6 @@ pub struct Params {
     pub h_out: usize,
     pub k_max: usize,
     pub config: Config,
-}
-
-#[derive(Clone)]
-struct Coords {
-    n: Arc<Mutex<usize>>,
-    m: usize,
-    w_in: usize,
-    h_in: usize,
-    w_out: usize,
-    stride_x: usize,
-    stride_y: usize,
-}
-impl Coords {
-    fn new(w_in: usize, h_in: usize, w_out: usize, stride_x: usize, stride_y: usize) -> Self {
-        let nx = (w_in + stride_x - 1) / stride_x;
-        let ny = (h_in + stride_y - 1) / stride_y;
-        let m = nx * ny;
-        Self { n: Arc::new(Mutex::new(0)), m, w_in, h_in, w_out, stride_x, stride_y }
-    }
-    fn next(&self) -> Option<(usize, usize)> {
-        let mut guard = self.n.lock();
-        if *guard >= self.m {
-            return None;
-        }
-        let idx = *guard;
-        *guard += 1;
-        let nx = (self.w_in + self.stride_x - 1) / self.stride_x;
-        let sx = idx % nx;
-        let sy = idx / nx;
-        Some((sx * self.stride_x, sy * self.stride_y))
-    }
 }
 
 #[derive(Clone)]
@@ -239,25 +212,12 @@ impl SuperPixel {
             original_color,
         }
     }
-    fn cost(&self, x0: usize, y0: usize, in_image: &[Vec<Vec3>], n: usize, m: usize) -> f64 {
+    fn cost(&self, x0: usize, y0: usize, in_image: &[Vec<Vec3>], n: usize, m: usize, spatial_w: f64) -> f64 {
         let in_color = in_image[x0][y0];
         let c_diff = color_diff(in_color, self.palette_color);
         let dx = self.x - x0 as f64;
         let dy = self.y - y0 as f64;
-        c_diff + 45.0 * ((n as f64 / m as f64).sqrt()) * (dx * dx + dy * dy).sqrt()
-    }
-    fn add_pixel(&self, x0: usize, y0: usize, in_image: &[Vec<Vec3>]) {
-        let mut a = self.accum.lock();
-        a.count += 1;
-        a.sum_x += x0 as f64;
-        a.sum_y += y0 as f64;
-        let p = in_image[x0][y0];
-        a.sum_l += p.x;
-        a.sum_a += p.y;
-        a.sum_b += p.z;
-    }
-    fn clear_pixels(&self) {
-        *self.accum.lock() = Accum::default();
+        c_diff + spatial_w * ((n as f64 / m as f64).sqrt()) * (dx * dx + dy * dy).sqrt()
     }
     fn normalize_probs(&mut self, palette: &[ColorEntry]) {
         let mut denom: f64 = self.p_c.iter().copied().sum();
@@ -310,6 +270,7 @@ fn sp_refine(
     stride_x: usize,
     stride_y: usize,
     m_full: usize,
+    spatial_weight: f64,
 ) {
     let n = w_out * h_out;
 
@@ -347,6 +308,7 @@ fn sp_refine(
         let h_out_c = h_out;
         let n_c = n;
         let m_full_c = m_full;
+        let spatial_w_c = spatial_weight;
         let handle = thread::spawn(move || {
             let mut acc: Vec<Vec<LocalAccum>> = vec![vec![LocalAccum::default(); h_out_c]; w_out_c];
             let dx = [-1, -1, -1, 0, 0, 0, 1, 1, 1];
@@ -367,7 +329,7 @@ fn sp_refine(
                         continue;
                     }
                     let sp_r = sp_c[rr as usize][cc as usize].read();
-                    let cost = sp_r.cost(x, y, &in_c, n_c, m_full_c);
+                    let cost = sp_r.cost(x, y, &in_c, n_c, m_full_c, spatial_w_c);
                     if cost < best_cost {
                         best_cost = cost;
                         best_pair = (rr, cc);
@@ -406,7 +368,7 @@ fn sp_refine(
                 total.sum_a += a.sum_a;
                 total.sum_b += a.sum_b;
             }
-            let mut sp = super_pixels[r][c].write();
+            let sp = super_pixels[r][c].write();
             {
                 let mut acc = sp.accum.lock();
                 acc.count = total.count;
@@ -593,11 +555,11 @@ fn expand(
     }
 }
 
-fn saturate(out_lab: &mut [Vec<Vec3>], w_out: usize, h_out: usize) {
+fn saturate(out_lab: &mut [Vec<Vec3>], w_out: usize, h_out: usize, factor: f64) {
     for r in 0..w_out {
         for c in 0..h_out {
-            out_lab[r][c].y *= 1.1;
-            out_lab[r][c].z *= 1.1;
+            out_lab[r][c].y *= factor;
+            out_lab[r][c].z *= factor;
         }
     }
 }
@@ -666,6 +628,7 @@ pub fn process_dynamic(
     let delta = pc1.scale(1.5);
     info!("PCA first component: [{:.3}, {:.3}, {:.3}]", pc1.x, pc1.y, pc1.z);
 
+    let spatial_w = config.spatial_weight.unwrap_or(45.0);
     let mut t = 35.0f64;
     let t_final = config.t_final;
     let mut k = 1usize;
@@ -718,6 +681,7 @@ pub fn process_dynamic(
             config.stride_x,
             config.stride_y,
             m_full,
+            spatial_w,
         );
         associate(&super_pixels, &mut palette, &clusters, t);
         let total_change = palette_refine(&super_pixels, &mut palette);
@@ -751,7 +715,7 @@ pub fn process_dynamic(
             out_lab[r][c] = super_pixels[r][c].read().palette_color;
         }
     }
-    saturate(&mut out_lab, w_out, h_out);
+    saturate(&mut out_lab, w_out, h_out, config.saturation_factor);
     let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
     Ok(out_img)
 }
@@ -776,6 +740,8 @@ pub fn process(params: Params) -> Result<()> {
     let delta = pc1.scale(1.5);
     info!("PCA first component: [{:.3}, {:.3}, {:.3}]", pc1.x, pc1.y, pc1.z);
 
+    let sat_factor = config.saturation_factor;
+    let spatial_w = config.spatial_weight.unwrap_or(45.0);
     let mut t = 35.0f64;
     let t_final = config.t_final;
     let mut k = 1usize;
@@ -828,6 +794,7 @@ pub fn process(params: Params) -> Result<()> {
             config.stride_x,
             config.stride_y,
             m_full,
+            spatial_w,
         );
         associate(&super_pixels, &mut palette, &clusters, t);
         let total_change = palette_refine(&super_pixels, &mut palette);
@@ -857,7 +824,7 @@ pub fn process(params: Params) -> Result<()> {
                     out_lab[r][c] = super_pixels[r][c].read().palette_color;
                 }
             }
-            saturate(&mut out_lab, w_out, h_out);
+            saturate(&mut out_lab, w_out, h_out, sat_factor);
             let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
             let tmp_path = tmp_progress_path(&out_image_name, iterations / 100);
             out_img.save(&tmp_path)?;
@@ -874,7 +841,7 @@ pub fn process(params: Params) -> Result<()> {
             out_lab[r][c] = super_pixels[r][c].read().palette_color;
         }
     }
-    saturate(&mut out_lab, w_out, h_out);
+    saturate(&mut out_lab, w_out, h_out, sat_factor);
     let out_img = lab_to_rgb_image(&out_lab, w_out, h_out);
     out_img.save(out_image_name)?;
     info!("Final output saved");

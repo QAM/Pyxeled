@@ -1,4 +1,4 @@
-use image::{DynamicImage, ImageBuffer, Rgb, RgbImage};
+use image::{ImageBuffer, Rgb, RgbImage};
 use pixel_convert_rust::{map_image_to_palette, named_palette, ColorDistanceAlgorithm};
 
 fn tiny_test_image() -> RgbImage {
