@@ -1,8 +1,10 @@
 name: Build Wheels
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build-wheels:
